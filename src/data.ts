@@ -1,13 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
-import { Flatten, Indices } from "./flattenKeys.ts";
+import { Flatten, Indices, getAtIndex, setAtIndex } from "./indices.ts";
 import { IndexModifier } from "./modifiers.ts";
 
 /**
  * The connection class maps input and output channels
- *
- * TODO:
- *  - set new data of only certain types and indices
- *  -
  */
 export class Connection<IncomingType, OutgoingType> {
   /**
@@ -22,13 +18,18 @@ export class Connection<IncomingType, OutgoingType> {
     readonly incoming: Channel<IncomingType>,
     readonly outgoing: Automatic<OutgoingType>,
     readonly setDataHandler: (
-      this: Connection<IncomingType, OutgoingType>,
-      newData: IncomingType
+      this: Connection<IncomingType, OutgoingType>
     ) => void,
-    readonly setDataAtIndexHandler: <T extends keyof Flatten<IncomingType>>(
+    readonly getDataHandler: (
+      this: Connection<IncomingType, OutgoingType>
+    ) => void,
+    readonly setDataAtIndexHandler: <T extends Indices<IncomingType>>(
       this: Connection<IncomingType, OutgoingType>,
-      index: T,
-      newData: Flatten<IncomingType>[T]
+      index: T
+    ) => void,
+    readonly getDataAtIndexHandler: <T extends Indices<OutgoingType>>(
+      this: Connection<IncomingType, OutgoingType>,
+      index: T
     ) => void,
     readonly modifyIndicesHandler: (
       this: Connection<IncomingType, OutgoingType>,
@@ -36,7 +37,9 @@ export class Connection<IncomingType, OutgoingType> {
     ) => void
   ) {
     this.setDataHandler = setDataHandler.bind(this);
+    this.getDataHandler = getDataHandler.bind(this);
     this.setDataAtIndexHandler = setDataAtIndexHandler.bind(this);
+    this.getDataAtIndexHandler = getDataAtIndexHandler.bind(this);
     this.modifyIndicesHandler = modifyIndicesHandler.bind(this);
   }
 }
@@ -58,11 +61,41 @@ export interface Channel<Type> {
 }
 
 export abstract class Automatic<Type> implements Channel<Type> {
+  /**
+   * The cached data for the channel (starts out undefined)
+   */
+  public cached: Type = undefined!;
+  /**
+   * Which indices need updating
+   */
+  public updateMap: { [index: string]: boolean } = {};
+  /**
+   * Whether a full update is required
+   */
+  public needsFullUpdate = true;
+
   constructor(readonly connections: Connection<any, Type>[]) {}
 
-  abstract getData(): Type;
+  retrieveFromCache(): Type {
+    if (this.needsFullUpdate || Object.values(this.updateMap).some((x) => x)) {
+      throw new Error("Expected channel to be fully cached");
+    }
+    return this.cached;
+  }
 
-  abstract getDataAtIndex<T extends Indices<Type>>(index: T): Flatten<Type>[T];
+  getData(): Type {
+    for (const connection of this.connections) {
+      connection.getDataHandler();
+    }
+    return this.retrieveFromCache();
+  }
+
+  getDataAtIndex<T extends Indices<Type>>(index: T): Flatten<Type>[T] {
+    for (const connection of this.connections) {
+      connection.getDataAtIndexHandler(index);
+    }
+    return getAtIndex(this.retrieveFromCache(), index);
+  }
 }
 
 /**
@@ -79,26 +112,11 @@ export class Data<Type> implements Channel<Type> {
     return this.data;
   }
 
-  getDataAtIndex<T extends keyof Flatten<Type>>(index: T): Flatten<Type>[T] {
-    const parts = (index as string).split(".");
-
-    let data = this.data;
-    for (const part of parts) {
-      data = (data as any)[part];
-    }
-    return data as any;
+  getDataAtIndex<T extends Indices<Type>>(index: T): Flatten<Type>[T] {
+    return getAtIndex(this.data, index);
   }
 
-  setDataAtIndex<T extends keyof Flatten<Type>>(
-    index: T,
-    newData: Flatten<Type>[T]
-  ) {
-    const parts = (index as string).split(".");
-
-    let data = this.data;
-    for (const part of parts.slice(0, -1)) {
-      data = (data as any)[part];
-    }
-    (data as any)[parts[parts.length - 1]] = newData;
+  setDataAtIndex<T extends Indices<Type>>(index: T, newData: Flatten<Type>[T]) {
+    setAtIndex(this.data, index, newData);
   }
 }

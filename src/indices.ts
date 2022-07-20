@@ -1,3 +1,28 @@
+export function getAtIndex<Type, T extends Indices<Type>>(
+  data: Type,
+  index: T
+): Flatten<Type>[T] {
+  const parts = (index as string).split(".");
+
+  for (const part of parts) {
+    data = (data as any)[part];
+  }
+  return data as any;
+}
+
+export function setAtIndex<Type, T extends Indices<Type>>(
+  data: Type,
+  index: T,
+  newData: Flatten<Type>[T]
+) {
+  const parts = (index as string).split(".");
+
+  for (const part of parts.slice(0, -1)) {
+    data = (data as any)[part];
+  }
+  (data as any)[parts[parts.length - 1]] = newData;
+}
+
 // deno-lint-ignore-file no-explicit-any ban-types
 export type Indices<T> = keyof Flatten<T>;
 
