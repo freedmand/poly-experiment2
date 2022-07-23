@@ -1,28 +1,36 @@
-import { Automatic, Connection, Channel } from "./channel";
+import { Automatic, Channel } from "./channel";
 import { Indices, setAtIndex } from "./indices";
 import { IndexModifier } from "./modifiers";
 
-export class Map<OutputType, InputType> extends Automatic<OutputType[]> {
+export class Map<OutputType, InputType> extends Automatic<
+  [InputType[]],
+  OutputType[]
+> {
   constructor(
     public incoming: Channel<InputType[]>,
     readonly mapFn: (inputElem: InputType) => OutputType
   ) {
-    super([]);
-    this.connections = [
-      new Connection(
-        incoming,
-        this,
-        () => {
-          this.needsFullUpdate = true;
+    super(
+      [incoming],
+      [
+        {
+          setData: () => {
+            this.needsFullUpdate = true;
+          },
+          setDataAtIndex: (index: Indices<InputType[]>) => {
+            this.updateMap[index as Indices<OutputType[]>] = true;
+          },
+          modifyIndicesHandler: (index: IndexModifier) => {
+            throw new Error("not yet implemented");
+          },
         },
-        () => {
+      ],
+      {
+        getData: () => {
           this.cached = this.incoming.getData().map((x) => this.mapFn(x));
           this.needsFullUpdate = false;
         },
-        (index: Indices<OutputType[]>) => {
-          this.updateMap[index] = true;
-        },
-        (index: Indices<OutputType[]>) => {
+        getDataAtIndex: (index: Indices<OutputType[]>) => {
           if (this.updateMap[index]) {
             setAtIndex(
               this.cached,
@@ -36,13 +44,7 @@ export class Map<OutputType, InputType> extends Automatic<OutputType[]> {
           }
           this.updateMap[index] = false;
         },
-        (indexModifier: IndexModifier) => {
-          throw new Error("not yet implemented");
-        }
-      ),
-    ];
-    for (const connection of this.connections) {
-      connection.setDataHandler();
-    }
+      }
+    );
   }
 }
