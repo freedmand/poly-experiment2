@@ -23,7 +23,6 @@ export function setAtIndex<Type, T extends Indices<Type>>(
   (data as any)[parts[parts.length - 1]] = newData;
 }
 
-// deno-lint-ignore-file no-explicit-any ban-types
 export type Indices<T> = keyof Flatten<T>;
 
 export type Flatten<T, O = never> = Writable<Cleanup<T>, O> extends infer U

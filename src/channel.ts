@@ -1,6 +1,5 @@
-// deno-lint-ignore-file no-explicit-any
-import { Flatten, Indices, getAtIndex, setAtIndex } from "./indices.ts";
-import { IndexModifier } from "./modifiers.ts";
+import { Flatten, Indices, getAtIndex, setAtIndex } from "./indices";
+import { IndexModifier } from "./modifiers";
 
 /**
  * The connection class maps input and output channels
@@ -17,31 +16,16 @@ export class Connection<IncomingType, OutgoingType> {
   constructor(
     readonly incoming: Channel<IncomingType>,
     readonly outgoing: Automatic<OutgoingType>,
-    readonly setDataHandler: (
-      this: Connection<IncomingType, OutgoingType>
-    ) => void,
-    readonly getDataHandler: (
-      this: Connection<IncomingType, OutgoingType>
-    ) => void,
-    readonly setDataAtIndexHandler: <T extends Indices<IncomingType>>(
-      this: Connection<IncomingType, OutgoingType>,
+    readonly setDataHandler: () => void,
+    readonly getDataHandler: () => void,
+    readonly setDataAtIndexHandler: <T extends Indices<OutgoingType>>(
       index: T
     ) => void,
     readonly getDataAtIndexHandler: <T extends Indices<OutgoingType>>(
-      this: Connection<IncomingType, OutgoingType>,
       index: T
     ) => void,
-    readonly modifyIndicesHandler: (
-      this: Connection<IncomingType, OutgoingType>,
-      indexModifier: IndexModifier
-    ) => void
-  ) {
-    this.setDataHandler = setDataHandler.bind(this);
-    this.getDataHandler = getDataHandler.bind(this);
-    this.setDataAtIndexHandler = setDataAtIndexHandler.bind(this);
-    this.getDataAtIndexHandler = getDataAtIndexHandler.bind(this);
-    this.modifyIndicesHandler = modifyIndicesHandler.bind(this);
-  }
+    readonly modifyIndicesHandler: (indexModifier: IndexModifier) => void
+  ) {}
 }
 
 /**
@@ -68,17 +52,23 @@ export abstract class Automatic<Type> implements Channel<Type> {
   /**
    * Which indices need updating
    */
-  public updateMap: { [index: string]: boolean } = {};
+  public updateMap: { [index in Indices<Type>]: boolean } = {} as {
+    [index in Indices<Type>]: boolean;
+  };
   /**
    * Whether a full update is required
    */
   public needsFullUpdate = true;
 
-  constructor(readonly connections: Connection<any, Type>[]) {}
+  constructor(public connections: Connection<any, Type>[] = []) {}
 
   retrieveFromCache(): Type {
     if (this.needsFullUpdate || Object.values(this.updateMap).some((x) => x)) {
-      throw new Error("Expected channel to be fully cached");
+      throw new Error(
+        `Expected channel to be fully cached (${
+          this.needsFullUpdate
+        }, ${JSON.stringify(this.updateMap)})`
+      );
     }
     return this.cached;
   }

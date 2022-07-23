@@ -1,36 +1,35 @@
-import { assertEquals } from "https://deno.land/std@0.147.0/testing/asserts.ts";
-import { Data } from "./data.ts";
+import { Data } from "./channel";
 
-Deno.test("array", () => {
+test("array", () => {
   const data = new Data([1, 2, 3]);
   data.setDataAtIndex("0", 4);
 
-  assertEquals(data.data, [4, 2, 3]);
+  expect(data.data).toEqual([4, 2, 3]);
 });
 
-Deno.test("tuple", () => {
+test("tuple", () => {
   const data = new Data<[number, string, number]>([1, "dog", 3]);
   data.setDataAtIndex("0", 4);
 
-  assertEquals(data.data, [4, "dog", 3]);
+  expect(data.data).toEqual([4, "dog", 3]);
 
   data.setDataAtIndex("1", "cat");
 
-  assertEquals(data.data, [4, "cat", 3]);
+  expect(data.data).toEqual([4, "cat", 3]);
 });
 
-Deno.test("dict", () => {
+test("dict", () => {
   const data = new Data({ status: "ok", code: 200 });
   data.setDataAtIndex("status", "error");
 
-  assertEquals(data.data, { status: "error", code: 200 });
+  expect(data.data).toEqual({ status: "error", code: 200 });
 
   data.setDataAtIndex("code", 404);
 
-  assertEquals(data.data, { status: "error", code: 404 });
+  expect(data.data).toEqual({ status: "error", code: 404 });
 });
 
-Deno.test("nested dict", () => {
+test("nested dict", () => {
   const data = new Data({
     response: {
       status: "ok",
@@ -40,7 +39,7 @@ Deno.test("nested dict", () => {
 
   data.setDataAtIndex("response.status", "goodbye");
 
-  assertEquals(data.data, {
+  expect(data.data).toEqual({
     response: {
       status: "goodbye",
       code: 200,
@@ -48,7 +47,7 @@ Deno.test("nested dict", () => {
   });
 });
 
-Deno.test("deeply nested dict", () => {
+test("deeply nested dict", () => {
   const data = new Data({
     message: {
       response: {
@@ -61,7 +60,7 @@ Deno.test("deeply nested dict", () => {
 
   data.setDataAtIndex("message.response.codes", [404, "notfound"]);
 
-  assertEquals(data.data, {
+  expect(data.data).toEqual({
     message: {
       response: {
         status: "ok",
@@ -76,7 +75,7 @@ Deno.test("deeply nested dict", () => {
   data.setDataAtIndex("message.response.status", "error");
   data.setDataAtIndex("body", "<p>access denied.</p>");
 
-  assertEquals(data.data, {
+  expect(data.data).toEqual({
     message: {
       response: {
         status: "error",
@@ -87,10 +86,10 @@ Deno.test("deeply nested dict", () => {
   });
 });
 
-Deno.test("whole value replacement", () => {
+test("whole value replacement", () => {
   const data = new Data({ body: "hello" });
 
   data.setData({ body: "dog" });
 
-  assertEquals(data.getData(), { body: "dog" });
+  expect(data.getData()).toEqual({ body: "dog" });
 });
