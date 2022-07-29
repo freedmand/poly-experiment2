@@ -15,10 +15,12 @@ export class Map<OutputType, InputType> extends Automatic<
       [
         {
           setData: () => {
-            this.needsFullUpdate = true;
+            this.updateMap.addAll();
+            this.markDataNeedsUpdate();
           },
           setDataAtIndex: (index: Indices<InputType[]>) => {
-            this.updateMap[index as Indices<OutputType[]>] = true;
+            this.updateMap.addIndex(index as Indices<OutputType[]>);
+            this.markIndexNeedsUpdate(index as Indices<OutputType[]>);
           },
           modifyIndicesHandler: (index: IndexModifier) => {
             throw new Error("not yet implemented");
@@ -28,21 +30,17 @@ export class Map<OutputType, InputType> extends Automatic<
       {
         getData: () => {
           this.cached = this.incoming.getData().map((x) => this.mapFn(x));
-          this.needsFullUpdate = false;
         },
         getDataAtIndex: (index: Indices<OutputType[]>) => {
-          if (this.updateMap[index]) {
-            setAtIndex(
-              this.cached,
-              index,
-              this.mapFn(
-                incoming.getDataAtIndex(
-                  index as Indices<InputType[]>
-                ) as InputType
-              ) as any
-            );
-          }
-          this.updateMap[index] = false;
+          setAtIndex(
+            this.cached,
+            index,
+            this.mapFn(
+              incoming.getDataAtIndex(
+                index as Indices<InputType[]>
+              ) as InputType
+            ) as any
+          );
         },
       }
     );

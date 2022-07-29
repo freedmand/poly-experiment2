@@ -1,11 +1,12 @@
 import { Flatten, Indices, getAtIndex, setAtIndex } from "./indices";
 import { IndexModifier } from "./modifiers";
+import { IndexSet } from "./set";
+import { ChannelMap, HandlerMap } from "./utilityTypes";
 
-type EnforceArray<T> = T extends any[] ? T : never;
-type ChannelMap<T extends any[] | [any]> = EnforceArray<{
-  [K in keyof T]: Channel<T[K]>;
-}>;
-type SetHandler<Type> = {
+/**
+ * Handlers for dealing with incoming channel data mutations
+ */
+export type SetHandler<Type> = {
   /**
    * A handler for setting the data of an incoming channel
    * @param index The index that is updated for the incoming channel
@@ -21,10 +22,6 @@ type SetHandler<Type> = {
    */
   readonly modifyIndicesHandler: (indexModifier: IndexModifier) => void;
 };
-
-type HandlerMap<T extends any[] | [any]> = EnforceArray<{
-  [K in keyof T]: SetHandler<T[K]>;
-}>;
 
 /**
  * A channel is an abstract class that provides typed data
@@ -43,7 +40,7 @@ export abstract class Channel<Type> {
 
   /**
    * A list of outgoing connections for the channel. When data is updated,
-   * outgoing connections will get notified.
+   * connected outgoing channels will get notified.
    *
    * Each outgoing connection maps which incoming connection corresponds to this
    * channel.
@@ -53,7 +50,7 @@ export abstract class Channel<Type> {
     channel: Automatic<any, any>;
   }[] = [];
 
-  pingData(): void {
+  markDataNeedsUpdate(): void {
     for (const { incomingConnectionIndex, channel } of this
       .outgoingConnections) {
       (
@@ -62,7 +59,7 @@ export abstract class Channel<Type> {
     }
   }
 
-  pingDataAtIndex<T extends Indices<Type>>(index: T): void {
+  markIndexNeedsUpdate<T extends Indices<Type>>(index: T): void {
     for (const { incomingConnectionIndex, channel } of this
       .outgoingConnections) {
       (
@@ -72,6 +69,9 @@ export abstract class Channel<Type> {
   }
 }
 
+/**
+ * An automatic channel provides derived data based on connected incoming channels
+ */
 export abstract class Automatic<
   IncomingTypes extends any[] | [any],
   OutgoingType
@@ -79,21 +79,14 @@ export abstract class Automatic<
   /**
    * The cached data for the channel (starts out undefined)
    */
-  public cached: OutgoingType = undefined!;
+  public cached: OutgoingType = {} as any;
   /**
    * Which indices need updating
    */
-  public updateMap: { [index in Indices<OutgoingType>]: boolean } = {} as {
-    [index in Indices<OutgoingType>]: boolean;
-  };
-  /**
-   * Whether a full update is required
-   */
-  public needsFullUpdate = true;
+  public updateMap = new IndexSet<OutgoingType>(false);
   /**
    *
-   * @param incoming The list of incoming channels
-   * @param outgoing The outgoing channel the connection produces
+   * @param incomingChannels The list of incoming channels
    * @param setHandlers The handlers for setting data for each incoming channel.
    * These handlers should only affect the outgoing channel's cached and
    * needsUpdate properties
@@ -102,7 +95,7 @@ export abstract class Automatic<
   constructor(
     readonly incomingChannels: ChannelMap<IncomingTypes>,
     readonly setHandlers: HandlerMap<IncomingTypes>,
-    readonly getHandlers: {
+    public getHandlers: {
       /**
        * A handler for loading all the into the cache
        */
@@ -128,27 +121,36 @@ export abstract class Automatic<
     }
   }
 
-  retrieveFromCache(): OutgoingType {
-    if (this.needsFullUpdate || Object.values(this.updateMap).some((x) => x)) {
-      throw new Error(
-        `Expected channel to be fully cached (${
-          this.needsFullUpdate
-        }, ${JSON.stringify(this.updateMap)})`
-      );
+  getData(): OutgoingType {
+    const indices = this.updateMap.indices();
+    if (indices == null) {
+      // Update all the data
+      this.getHandlers.getData();
+      // Set all indices to cached
+      this.updateMap.removeAll();
+    } else {
+      // Update indices that need updating
+      for (const indexNeedingUpdate of indices) {
+        this.getHandlers.getDataAtIndex(indexNeedingUpdate);
+        this.updateMap.removeIndex(indexNeedingUpdate);
+      }
     }
     return this.cached;
   }
 
-  getData(): OutgoingType {
-    this.getHandlers.getData();
-    return this.retrieveFromCache();
+  indexCached<T extends Indices<OutgoingType>>(index: T): boolean {
+    if (!this.updateMap.hasIndex(index)) return true;
+    return false;
   }
 
   getDataAtIndex<T extends Indices<OutgoingType>>(
     index: T
   ): Flatten<OutgoingType>[T] {
-    this.getHandlers.getDataAtIndex(index);
-    return getAtIndex(this.retrieveFromCache(), index);
+    if (!this.indexCached(index)) {
+      this.getHandlers.getDataAtIndex(index);
+      this.updateMap.removeIndex(index);
+    }
+    return getAtIndex(this.cached, index);
   }
 }
 
@@ -162,7 +164,7 @@ export class Data<Type> extends Channel<Type> {
 
   setData(newData: Type) {
     this.data = newData;
-    this.pingData();
+    this.markDataNeedsUpdate();
   }
 
   getData(): Type {
@@ -175,6 +177,6 @@ export class Data<Type> extends Channel<Type> {
 
   setDataAtIndex<T extends Indices<Type>>(index: T, newData: Flatten<Type>[T]) {
     setAtIndex(this.data, index, newData);
-    this.pingDataAtIndex(index);
+    this.markIndexNeedsUpdate(index);
   }
 }
