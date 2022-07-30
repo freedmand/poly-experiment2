@@ -4,6 +4,10 @@ import {
   getAtIndex,
   setAtIndex,
   insertAtIndex,
+  indexEqual,
+  isSubIndex,
+  getSubIndex,
+  indexJoin,
 } from "./indices";
 import { IndexModifier } from "./modifiers";
 import { IndexSet } from "./set";
@@ -45,6 +49,16 @@ export abstract class Channel<Type> {
    * @param index The index of data to retrieve
    */
   abstract getDataAtIndex<T extends Indices<Type>>(index: T): Flatten<Type>[T];
+
+  /**
+   * Gets the data element at the specified index as a downstream channel
+   * @param index The index of data to retrieve
+   */
+  getChannelAtIndex<T extends Indices<Type>>(
+    index: T
+  ): Automatic<[Type], Flatten<Type>[T]> {
+    return new IndexAccess(this, index);
+  }
 
   /**
    * A list of outgoing connections for the channel. When data is updated,
@@ -89,14 +103,14 @@ export abstract class Channel<Type> {
 /**
  * An automatic channel provides derived data based on connected incoming channels
  */
-export abstract class Automatic<
+export class Automatic<
   IncomingTypes extends any[] | [any],
   OutgoingType
 > extends Channel<OutgoingType> {
   /**
    * The cached data for the channel (starting value defined by subclass)
    */
-  abstract cached: OutgoingType;
+  cached: OutgoingType = undefined!;
   /**
    * Which indices need updating
    */
@@ -203,5 +217,56 @@ export class Data<Type> extends Channel<Type> {
       type: "InsertModifier",
       index,
     });
+  }
+}
+
+export class IndexAccess<
+  InputType,
+  Index extends Indices<InputType>
+> extends Automatic<[InputType], Flatten<InputType>[Index]> {
+  constructor(public incoming: Channel<InputType>, public index: Index) {
+    super(
+      [incoming],
+      [
+        {
+          setData: () => {
+            this.updateMap.addAll();
+            this.markDataNeedsUpdate();
+          },
+          setDataAtIndex: <T extends Indices<InputType>>(index: T) => {
+            // Only do something if the index is a part of the watched index
+            if (indexEqual(index, this.index)) {
+              // Equivalent to setting all data
+              this.updateMap.addAll();
+              this.markDataNeedsUpdate();
+            } else if (isSubIndex(index, this.index)) {
+              // Actually set at index
+              const subIndex = getSubIndex(index, this.index) as Indices<
+                Flatten<InputType>[Index]
+              >;
+              this.updateMap.addIndex(subIndex);
+              this.markIndexNeedsUpdate(subIndex);
+            }
+          },
+          modifyIndicesHandler: (indexModifier) => {
+            throw new Error("TODO: support index modifications");
+          },
+        },
+      ],
+      {
+        getData: () => {
+          this.cached = getAtIndex(this.incoming.getData(), this.index);
+        },
+        getDataAtIndex: (index: Indices<Flatten<InputType>[Index]>) => {
+          setAtIndex(
+            this.cached,
+            index,
+            this.incoming.getDataAtIndex(
+              indexJoin(this.index, index) as Index
+            ) as any
+          );
+        },
+      }
+    );
   }
 }

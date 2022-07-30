@@ -189,3 +189,58 @@ test("map with index shift empty list get all data", () => {
   expect(timesTwo.getData()).toEqual([10]);
   expect(timesTwoCalls()).toEqual([1, {}]);
 });
+
+test("map of nested data", () => {
+  // Create a pizza
+  const data = new Data({
+    pizzaSize: "L",
+    toppings: ["peppers", "onions"],
+  });
+
+  // Create an auto channel of the toppings surrounded by parens
+  const toppingsInParens = new Map(
+    data.getChannelAtIndex("toppings"),
+    (x) => `(${x})`
+  );
+  const toppingsInParensCalls = getDataCalls(toppingsInParens);
+  expect(toppingsInParensCalls()).toEqual([0, {}]);
+
+  // Get the data
+  expect(toppingsInParens.getData()).toEqual(["(peppers)", "(onions)"]);
+  expect(toppingsInParensCalls()).toEqual([1, {}]);
+
+  // Change one of the toppings
+  data.setDataAtIndex("toppings.0", "cilantro");
+  expect(toppingsInParens.getDataAtIndex("0")).toEqual("(cilantro)");
+  expect(toppingsInParensCalls()).toEqual([1, { "0": 1 }]);
+
+  // Get all data again
+  expect(toppingsInParens.getData()).toEqual(["(cilantro)", "(onions)"]);
+  expect(toppingsInParensCalls()).toEqual([1, { "0": 1 }]);
+});
+
+test("map of nested data doesn't react to irrelevant updates", () => {
+  // Create a pizza
+  const data = new Data({
+    pizzaSize: "L",
+    toppings: ["peppers", "onions"],
+  });
+
+  // Create an auto channel of the toppings surrounded by parens
+  const toppingsInParens = new Map(
+    data.getChannelAtIndex("toppings"),
+    (x) => `(${x})`
+  );
+  const toppingsInParensCalls = getDataCalls(toppingsInParens);
+  expect(toppingsInParensCalls()).toEqual([0, {}]);
+
+  // Change the pizza size and get the toppings (should have no effect)
+  data.setDataAtIndex("pizzaSize", "M");
+  expect(toppingsInParens.getData()).toEqual(["(peppers)", "(onions)"]);
+  expect(toppingsInParensCalls()).toEqual([1, {}]);
+
+  // Change the pizza size again. Toppings should still be cached
+  data.setDataAtIndex("pizzaSize", "S");
+  expect(toppingsInParens.getData()).toEqual(["(peppers)", "(onions)"]);
+  expect(toppingsInParensCalls()).toEqual([1, {}]);
+});

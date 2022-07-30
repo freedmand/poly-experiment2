@@ -1,3 +1,33 @@
+export function indexEqual<T extends PropertyKey, U extends PropertyKey>(
+  index1: T,
+  index2: U
+): boolean {
+  return (index1 as string) === (index2 as string);
+}
+
+export function isSubIndex<T extends PropertyKey, U extends PropertyKey>(
+  potentialSubIndex: T,
+  parentIndex: U
+): boolean {
+  const subIndex = potentialSubIndex as string;
+  const parent = parentIndex as string;
+  return subIndex.startsWith(`${parent}.`);
+}
+
+export function getSubIndex<T extends PropertyKey, U extends PropertyKey>(
+  subIndex: T,
+  parentIndex: U
+): PropertyKey {
+  return (subIndex as string).substring((parentIndex as string).length + 1);
+}
+
+export function indexJoin<T extends PropertyKey, U extends PropertyKey>(
+  index1: T,
+  index2: U
+): PropertyKey {
+  return `${index1 as string}.${index2 as string}`;
+}
+
 export function getAtIndex<Type, T extends Indices<Type>>(
   data: Type,
   index: T
