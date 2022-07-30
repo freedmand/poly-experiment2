@@ -1,6 +1,8 @@
-export type IndexModifier = InsertModifier;
+import { Indices } from "./indices";
 
-export interface InsertModifier {
+export type IndexModifier<T> = InsertModifier<T>;
+
+export interface InsertModifier<T> {
   type: "InsertModifier";
-  index: number;
+  index: T;
 }

@@ -113,3 +113,79 @@ test("deep map set full", () => {
   expect(timesTwoCalls()).toEqual([1, {}]);
   expect(plus5Calls()).toEqual([1, {}]);
 });
+
+test("map with index shift", () => {
+  // Insert something at the beginning of a list
+  const data = new Data([1, 2, 3]);
+  const timesTwo = new Map(data, (x) => x * 2);
+  const timesTwoCalls = getDataCalls(timesTwo);
+  data.insert("0", 5);
+  expect(timesTwoCalls()).toEqual([0, {}]);
+
+  // Get data works
+  expect(data.getData()).toEqual([5, 1, 2, 3]);
+  expect(timesTwo.getData()).toEqual([10, 2, 4, 6]);
+  expect(timesTwoCalls()).toEqual([1, {}]);
+});
+
+test("map with index shift get index", () => {
+  // Insert something at the beginning of a list
+  const data = new Data([1, 2, 3]);
+  const timesTwo = new Map(data, (x) => x * 2);
+  const timesTwoCalls = getDataCalls(timesTwo);
+  data.insert("0", 5);
+  expect(timesTwoCalls()).toEqual([0, {}]);
+
+  // Getting at specific indices works
+  expect(timesTwo.getDataAtIndex("1")).toEqual(2);
+  expect(timesTwoCalls()).toEqual([0, { "1": 1 }]);
+  expect(timesTwo.getDataAtIndex("0")).toEqual(10);
+  expect(timesTwoCalls()).toEqual([0, { "0": 1, "1": 1 }]);
+  expect(timesTwo.getData()).toEqual([10, 2, 4, 6]);
+  expect(timesTwoCalls()).toEqual([1, { "0": 1, "1": 1 }]);
+});
+
+test("map with index shift in middle get index", () => {
+  // Insert something in the middle of a list
+  const data = new Data([1, 2, 3]);
+  const timesTwo = new Map(data, (x) => x * 2);
+  const timesTwoCalls = getDataCalls(timesTwo);
+  data.insert("2", 5);
+  expect(timesTwoCalls()).toEqual([0, {}]);
+
+  // Getting at specific indices works
+  expect(timesTwo.getDataAtIndex("1")).toEqual(4);
+  expect(timesTwoCalls()).toEqual([0, { "1": 1 }]);
+  expect(timesTwo.getDataAtIndex("2")).toEqual(10);
+  expect(timesTwoCalls()).toEqual([0, { "1": 1, "2": 1 }]);
+  expect(timesTwo.getData()).toEqual([2, 4, 10, 6]);
+  expect(timesTwoCalls()).toEqual([1, { "1": 1, "2": 1 }]);
+});
+
+test("map with index shift empty list", () => {
+  // Insert something in an empty list
+  const data = new Data([] as number[]);
+  const timesTwo = new Map(data, (x) => x * 2);
+  const timesTwoCalls = getDataCalls(timesTwo);
+  data.insert("0", 5);
+  expect(timesTwoCalls()).toEqual([0, {}]);
+
+  // Getting at specific indices works
+  expect(timesTwo.getDataAtIndex("0")).toEqual(10);
+  expect(timesTwoCalls()).toEqual([0, { "0": 1 }]);
+  expect(timesTwo.getData()).toEqual([10]);
+  expect(timesTwoCalls()).toEqual([1, { "0": 1 }]);
+});
+
+test("map with index shift empty list get all data", () => {
+  // Insert something in an empty list
+  const data = new Data([] as number[]);
+  const timesTwo = new Map(data, (x) => x * 2);
+  const timesTwoCalls = getDataCalls(timesTwo);
+  data.insert("0", 5);
+  expect(timesTwoCalls()).toEqual([0, {}]);
+
+  // Getting at specific indices works
+  expect(timesTwo.getData()).toEqual([10]);
+  expect(timesTwoCalls()).toEqual([1, {}]);
+});

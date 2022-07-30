@@ -23,6 +23,19 @@ export function setAtIndex<Type, T extends Indices<Type>>(
   (data as any)[parts[parts.length - 1]] = newData;
 }
 
+export function insertAtIndex<Type, T extends Indices<Type>>(
+  data: Type,
+  index: T,
+  newData: Flatten<Type>[T]
+) {
+  const parts = (index as string).split(".");
+
+  for (const part of parts.slice(0, -1)) {
+    data = (data as any)[part];
+  }
+  (data as any).splice(parts[parts.length - 1], 0, newData);
+}
+
 export type Indices<T> = keyof Flatten<T>;
 
 export type Flatten<T, O = never> = Writable<Cleanup<T>, O> extends infer U

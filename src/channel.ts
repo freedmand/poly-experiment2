@@ -1,4 +1,10 @@
-import { Flatten, Indices, getAtIndex, setAtIndex } from "./indices";
+import {
+  Flatten,
+  Indices,
+  getAtIndex,
+  setAtIndex,
+  insertAtIndex,
+} from "./indices";
 import { IndexModifier } from "./modifiers";
 import { IndexSet } from "./set";
 import { ChannelMap, HandlerMap } from "./utilityTypes";
@@ -20,7 +26,9 @@ export type SetHandler<Type> = {
    * A handler for dealing with index modification operations
    * @param indexModifier The index modification operation
    */
-  readonly modifyIndicesHandler: (indexModifier: IndexModifier) => void;
+  readonly modifyIndicesHandler: <U extends Indices<Type>>(
+    indexModifier: IndexModifier<U>
+  ) => void;
 };
 
 /**
@@ -67,6 +75,15 @@ export abstract class Channel<Type> {
       ).setDataAtIndex(index);
     }
   }
+
+  markModification<T extends Indices<Type>>(modifier: IndexModifier<T>): void {
+    for (const { incomingConnectionIndex, channel } of this
+      .outgoingConnections) {
+      (
+        channel.setHandlers[incomingConnectionIndex] as SetHandler<Type>
+      ).modifyIndicesHandler(modifier);
+    }
+  }
 }
 
 /**
@@ -77,9 +94,9 @@ export abstract class Automatic<
   OutgoingType
 > extends Channel<OutgoingType> {
   /**
-   * The cached data for the channel (starts out undefined)
+   * The cached data for the channel (starting value defined by subclass)
    */
-  public cached: OutgoingType = {} as any;
+  abstract cached: OutgoingType;
   /**
    * Which indices need updating
    */
@@ -171,12 +188,20 @@ export class Data<Type> extends Channel<Type> {
     return this.data;
   }
 
+  setDataAtIndex<T extends Indices<Type>>(index: T, newData: Flatten<Type>[T]) {
+    setAtIndex(this.data, index, newData);
+    this.markIndexNeedsUpdate(index);
+  }
+
   getDataAtIndex<T extends Indices<Type>>(index: T): Flatten<Type>[T] {
     return getAtIndex(this.data, index);
   }
 
-  setDataAtIndex<T extends Indices<Type>>(index: T, newData: Flatten<Type>[T]) {
-    setAtIndex(this.data, index, newData);
-    this.markIndexNeedsUpdate(index);
+  insert<T extends Indices<Type>>(index: T, newData: Flatten<Type>[T]) {
+    insertAtIndex(this.data, index, newData);
+    this.markModification({
+      type: "InsertModifier",
+      index,
+    });
   }
 }

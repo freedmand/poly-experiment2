@@ -6,6 +6,8 @@ export class Map<OutputType, InputType> extends Automatic<
   [InputType[]],
   OutputType[]
 > {
+  cached: OutputType[] = [];
+
   constructor(
     public incoming: Channel<InputType[]>,
     readonly mapFn: (inputElem: InputType) => OutputType
@@ -22,8 +24,19 @@ export class Map<OutputType, InputType> extends Automatic<
             this.updateMap.addIndex(index as Indices<OutputType[]>);
             this.markIndexNeedsUpdate(index as Indices<OutputType[]>);
           },
-          modifyIndicesHandler: (index: IndexModifier) => {
-            throw new Error("not yet implemented");
+          modifyIndicesHandler: (
+            modifier: IndexModifier<Indices<InputType[]>>
+          ) => {
+            switch (modifier.type) {
+              case "InsertModifier":
+                this.cached.splice(modifier.index as number, 0, undefined!);
+                this.updateMap.addIndex(
+                  modifier.index as Indices<OutputType[]>
+                );
+                this.markIndexNeedsUpdate(
+                  modifier.index as Indices<OutputType[]>
+                );
+            }
           },
         },
       ],
