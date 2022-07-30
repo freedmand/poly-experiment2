@@ -3,6 +3,7 @@
     "target": "ES2022",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "lib": ["dom"]
   }
 }

@@ -1,4 +1,4 @@
-import { Data } from "./channel";
+import { Data, ListenerChannel } from "./channel";
 import { Map } from "./common";
 import { getDataCalls } from "./testing";
 
@@ -315,4 +315,58 @@ test("map of nested array with insert", () => {
   expect(middleRowCalls()).toEqual([1, { "1": 1 }]);
   expect(middleRow.getData()).toEqual([0, 11]);
   expect(middleRowCalls()).toEqual([2, { "1": 1 }]);
+});
+
+test("listener channel", () => {
+  // Create basic array data
+  const data = new Data([1, 2, 3]);
+
+  // Mock callbacks for every aspect of modification
+  const dataCallback = jest.fn();
+  const dataIndexCallback = jest.fn();
+  const modifyIndicesCallback = jest.fn();
+
+  // Create a listener that links with the mocks
+  new ListenerChannel(
+    data,
+    dataCallback,
+    dataIndexCallback,
+    modifyIndicesCallback
+  );
+
+  // Mocks should be empty
+  expect(dataCallback.mock.calls.length).toEqual(0);
+  expect(dataIndexCallback.mock.calls.length).toEqual(0);
+  expect(modifyIndicesCallback.mock.calls.length).toEqual(0);
+
+  // Set all the data
+  data.setData([9, 10]);
+
+  // Data callback should have been triggered (and no others)
+  expect(dataCallback.mock.calls).toEqual([[[9, 10]]]);
+  expect(dataIndexCallback.mock.calls.length).toEqual(0);
+  expect(modifyIndicesCallback.mock.calls.length).toEqual(0);
+
+  // Set the data at an index
+  data.setDataAtIndex("1", 8);
+
+  // Data index callback should have been triggered (and no others)
+  expect(dataCallback.mock.calls.length).toEqual(1);
+  expect(dataIndexCallback.mock.calls).toEqual([["1", 8]]);
+  expect(modifyIndicesCallback.mock.calls.length).toEqual(0);
+
+  // Insert on the data
+  data.insert("1", 8.5);
+
+  // Index modification callback should have been triggered (and no others)
+  expect(dataCallback.mock.calls.length).toEqual(1);
+  expect(dataIndexCallback.mock.calls.length).toEqual(1);
+  expect(modifyIndicesCallback.mock.calls).toEqual([
+    [
+      {
+        type: "InsertModifier",
+        index: "1",
+      },
+    ],
+  ]);
 });

@@ -38,6 +38,10 @@ export type SetHandler<Type> = {
   ) => void;
 };
 
+export interface Listener<IncomingTypes extends any[] | [any]> {
+  setHandlers: HandlerMap<IncomingTypes>;
+}
+
 /**
  * A channel is an abstract class that provides typed data
  */
@@ -72,32 +76,32 @@ export abstract class Channel<Type> {
    */
   public outgoingConnections: {
     incomingConnectionIndex: number;
-    channel: Automatic<any, any>;
+    listener: Listener<any>;
   }[] = [];
 
   markDataNeedsUpdate(): void {
-    for (const { incomingConnectionIndex, channel } of this
+    for (const { incomingConnectionIndex, listener } of this
       .outgoingConnections) {
       (
-        channel.setHandlers[incomingConnectionIndex] as SetHandler<Type>
+        listener.setHandlers[incomingConnectionIndex] as SetHandler<Type>
       ).setData();
     }
   }
 
   markIndexNeedsUpdate<T extends Indices<Type>>(index: T): void {
-    for (const { incomingConnectionIndex, channel } of this
+    for (const { incomingConnectionIndex, listener } of this
       .outgoingConnections) {
       (
-        channel.setHandlers[incomingConnectionIndex] as SetHandler<Type>
+        listener.setHandlers[incomingConnectionIndex] as SetHandler<Type>
       ).setDataAtIndex(index);
     }
   }
 
   markModification<T extends Indices<Type>>(modifier: IndexModifier<T>): void {
-    for (const { incomingConnectionIndex, channel } of this
+    for (const { incomingConnectionIndex, listener } of this
       .outgoingConnections) {
       (
-        channel.setHandlers[incomingConnectionIndex] as SetHandler<Type>
+        listener.setHandlers[incomingConnectionIndex] as SetHandler<Type>
       ).modifyIndicesHandler(modifier);
     }
   }
@@ -150,7 +154,7 @@ export class Automatic<
     for (const incomingChannel of this.incomingChannels) {
       incomingChannel.outgoingConnections.push({
         incomingConnectionIndex: incomingChannel.outgoingConnections.length,
-        channel: this,
+        listener: this,
       });
     }
   }
@@ -294,4 +298,35 @@ export class IndexAccess<
       }
     );
   }
+}
+
+export class ListenerChannel<T> implements Listener<[T]> {
+  constructor(
+    public incoming: Channel<T>,
+    public dataCallback: (data: T) => void,
+    public dataIndexCallback: <U extends Indices<T>>(
+      index: U,
+      value: Flatten<T>[U]
+    ) => void,
+    public modifyIndicesCallback: (modifier: IndexModifier<Indices<T>>) => void
+  ) {
+    this.incoming.outgoingConnections.push({
+      incomingConnectionIndex: this.incoming.outgoingConnections.length,
+      listener: this,
+    });
+  }
+
+  public setHandlers: [SetHandler<T>] = [
+    {
+      setData: () => {
+        this.dataCallback(this.incoming.getData());
+      },
+      setDataAtIndex: (index: Indices<T>) => {
+        this.dataIndexCallback(index, this.incoming.getDataAtIndex(index));
+      },
+      modifyIndicesHandler: (modifier: IndexModifier<Indices<T>>) => {
+        this.modifyIndicesCallback(modifier);
+      },
+    },
+  ];
 }
