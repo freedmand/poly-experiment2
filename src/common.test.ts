@@ -244,3 +244,75 @@ test("map of nested data doesn't react to irrelevant updates", () => {
   expect(toppingsInParens.getData()).toEqual(["(peppers)", "(onions)"]);
   expect(toppingsInParensCalls()).toEqual([1, {}]);
 });
+
+test("map of nested data with insert", () => {
+  // Create a pizza
+  const data = new Data({
+    pizzaSize: "L",
+    toppings: ["peppers", "onions"],
+  });
+
+  // Create an auto channel of the toppings surrounded by parens
+  const toppingsInParens = new Map(
+    data.getChannelAtIndex("toppings"),
+    (x) => `(${x})`
+  );
+  const toppingsInParensCalls = getDataCalls(toppingsInParens);
+  expect(toppingsInParensCalls()).toEqual([0, {}]);
+
+  // Change the pizza size and get the toppings (should have no effect)
+  data.insert("toppings.2", "garlic");
+  expect(toppingsInParens.getData()).toEqual([
+    "(peppers)",
+    "(onions)",
+    "(garlic)",
+  ]);
+  expect(toppingsInParensCalls()).toEqual([1, {}]);
+});
+
+test("map of nested array with insert", () => {
+  // Create a matrix
+  const data = new Data([
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9],
+  ] as { [key: number]: number[] }); // TODO: figure out how to preserve number[][]
+
+  // Create an auto channel of the middle row
+  const middleRow = data.getChannelAtIndex(1);
+  const middleRowCalls = getDataCalls(middleRow);
+  expect(middleRowCalls()).toEqual([0, {}]);
+
+  // Get the data
+  expect(middleRow.getData()).toEqual([4, 5, 6]);
+  expect(middleRowCalls()).toEqual([1, {}]);
+
+  // Insert in the middle row (no more calls needed to get data)
+  data.insert("1.0", 0);
+  expect(middleRowCalls()).toEqual([1, {}]);
+  expect(middleRow.getDataAtIndex("1")).toEqual(4);
+  expect(middleRowCalls()).toEqual([1, {}]);
+  expect(middleRow.getDataAtIndex("0")).toEqual(0);
+  expect(middleRowCalls()).toEqual([1, {}]);
+  expect(middleRow.getData()).toEqual([0, 4, 5, 6]);
+  expect(middleRowCalls()).toEqual([1, {}]);
+
+  // Insert top-level data
+  data.insert(0, [9]);
+  data.insert(4, [10]);
+  expect(data.getData()).toEqual([
+    [9],
+    [1, 2, 3],
+    [0, 4, 5, 6],
+    [7, 8, 9],
+    [10],
+  ]);
+
+  // Set the middle row (which has now shifted)
+  data.setDataAtIndex(2, [0, 11]);
+  expect(middleRowCalls()).toEqual([1, {}]);
+  expect(middleRow.getDataAtIndex("1")).toEqual(11);
+  expect(middleRowCalls()).toEqual([1, { "1": 1 }]);
+  expect(middleRow.getData()).toEqual([0, 11]);
+  expect(middleRowCalls()).toEqual([2, { "1": 1 }]);
+});

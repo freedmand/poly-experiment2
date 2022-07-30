@@ -1,16 +1,20 @@
+export function stringIndex(index: PropertyKey): string {
+  return `${index as string}`;
+}
+
 export function indexEqual<T extends PropertyKey, U extends PropertyKey>(
   index1: T,
   index2: U
 ): boolean {
-  return (index1 as string) === (index2 as string);
+  return stringIndex(index1) === stringIndex(index2);
 }
 
 export function isSubIndex<T extends PropertyKey, U extends PropertyKey>(
   potentialSubIndex: T,
   parentIndex: U
 ): boolean {
-  const subIndex = potentialSubIndex as string;
-  const parent = parentIndex as string;
+  const subIndex = stringIndex(potentialSubIndex);
+  const parent = stringIndex(parentIndex);
   return subIndex.startsWith(`${parent}.`);
 }
 
@@ -18,21 +22,61 @@ export function getSubIndex<T extends PropertyKey, U extends PropertyKey>(
   subIndex: T,
   parentIndex: U
 ): PropertyKey {
-  return (subIndex as string).substring((parentIndex as string).length + 1);
+  return stringIndex(subIndex).substring(stringIndex(parentIndex).length + 1);
+}
+
+export function getParentIndex<T extends PropertyKey>(
+  index: T
+): PropertyKey | null {
+  const parts = stringIndex(index).split(".");
+  if (parts.length === 0) return null;
+  return parts.slice(0, -1).join(".");
+}
+
+export function areSiblings<T extends PropertyKey, U extends PropertyKey>(
+  index1: T,
+  index2: U
+): boolean {
+  const parent1 = getParentIndex(index1);
+  const parent2 = getParentIndex(index2);
+  return parent1 === parent2;
+}
+
+export function getLastPart<T extends PropertyKey>(
+  index: T
+): PropertyKey | null {
+  const parts = stringIndex(index).split(".");
+  if (parts.length === 0) return null;
+  return parts[parts.length - 1];
+}
+
+export function lastPartAsNumber<T extends PropertyKey>(index: T): number {
+  const lastPart = getLastPart(index);
+  return parseInt(lastPart as string);
+}
+
+export function incrementLastPart<T extends PropertyKey>(
+  index: T
+): PropertyKey {
+  const parts = stringIndex(index).split(".");
+  parts[parts.length - 1] = `${
+    parseInt(parts[parts.length - 1] as string) + 1
+  }`;
+  return parts.join(".");
 }
 
 export function indexJoin<T extends PropertyKey, U extends PropertyKey>(
   index1: T,
   index2: U
 ): PropertyKey {
-  return `${index1 as string}.${index2 as string}`;
+  return `${stringIndex(index1)}.${stringIndex(index2)}`;
 }
 
 export function getAtIndex<Type, T extends Indices<Type>>(
   data: Type,
   index: T
 ): Flatten<Type>[T] {
-  const parts = (index as string).split(".");
+  const parts = stringIndex(index).split(".");
 
   for (const part of parts) {
     data = (data as any)[part];
@@ -45,7 +89,7 @@ export function setAtIndex<Type, T extends Indices<Type>>(
   index: T,
   newData: Flatten<Type>[T]
 ) {
-  const parts = (index as string).split(".");
+  const parts = stringIndex(index).split(".");
 
   for (const part of parts.slice(0, -1)) {
     data = (data as any)[part];
@@ -58,7 +102,7 @@ export function insertAtIndex<Type, T extends Indices<Type>>(
   index: T,
   newData: Flatten<Type>[T]
 ) {
-  const parts = (index as string).split(".");
+  const parts = stringIndex(index).split(".");
 
   for (const part of parts.slice(0, -1)) {
     data = (data as any)[part];

@@ -8,6 +8,9 @@ import {
   isSubIndex,
   getSubIndex,
   indexJoin,
+  areSiblings,
+  lastPartAsNumber,
+  incrementLastPart,
 } from "./indices";
 import { IndexModifier } from "./modifiers";
 import { IndexSet } from "./set";
@@ -233,7 +236,7 @@ export class IndexAccess<
             this.updateMap.addAll();
             this.markDataNeedsUpdate();
           },
-          setDataAtIndex: <T extends Indices<InputType>>(index: T) => {
+          setDataAtIndex: (index: Indices<InputType>) => {
             // Only do something if the index is a part of the watched index
             if (indexEqual(index, this.index)) {
               // Equivalent to setting all data
@@ -248,8 +251,30 @@ export class IndexAccess<
               this.markIndexNeedsUpdate(subIndex);
             }
           },
-          modifyIndicesHandler: (indexModifier) => {
-            throw new Error("TODO: support index modifications");
+          modifyIndicesHandler: (
+            modifier: IndexModifier<Indices<InputType>>
+          ) => {
+            switch (modifier.type) {
+              case "InsertModifier":
+                if (isSubIndex(modifier.index, this.index)) {
+                  // React to index modification
+                  const subIndex = getSubIndex(index, this.index) as Indices<
+                    Flatten<InputType>[Index]
+                  >;
+                  this.markModification({
+                    type: "InsertModifier",
+                    index: subIndex,
+                  });
+                } else if (areSiblings(modifier.index, this.index)) {
+                  // Potentially adjust index
+                  const modifierIndex = lastPartAsNumber(modifier.index);
+                  const thisIndex = lastPartAsNumber(this.index);
+                  if (modifierIndex <= thisIndex) {
+                    // Adjust the index in response to modification
+                    this.index = incrementLastPart(this.index) as Index;
+                  }
+                }
+            }
           },
         },
       ],
